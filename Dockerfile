@@ -9,4 +9,6 @@ FROM mcr.microsoft.com/dotnet/runtime:8.0
 WORKDIR /app
 COPY --from=build /app/out .
 
+ENV BOT_TOKEN=REPLACE_ME
+
 ENTRYPOINT ["dotnet", "MotivationBot.dll"]

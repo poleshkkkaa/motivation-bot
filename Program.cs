@@ -42,6 +42,27 @@ Dictionary<long, string> userStates = new();
 Dictionary<long, bool> waitingForTime = new();
 QuoteResponse? lastQuote = null;
 bool waitingForDeleteId = false;
+Dictionary<long, List<DateTime>> quoteRequests = new();
+Dictionary<long, List<DateTime>> imageRequests = new();
+
+const int REQUEST_LIMIT = 5;
+const int LIMIT_SECONDS = 40;
+
+bool IsRateLimited(Dictionary<long, List<DateTime>> requestMap, long chatId)
+{
+    var now = DateTime.UtcNow;
+
+    if (!requestMap.ContainsKey(chatId))
+        requestMap[chatId] = new List<DateTime>();
+
+    requestMap[chatId].RemoveAll(t => (now - t).TotalSeconds > LIMIT_SECONDS);
+
+    if (requestMap[chatId].Count >= REQUEST_LIMIT)
+        return true;
+
+    requestMap[chatId].Add(now);
+    return false;
+}
 
 
 botClient.StartReceiving(
@@ -134,6 +155,12 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
     }
     else if (text == "/random")
     {
+        if (IsRateLimited(quoteRequests, chatId))
+        {
+            await bot.SendTextMessageAsync(chatId, "⏳ Зачекай трохи перед наступною цитатою (макс 5 кожні 40 сек).");
+            return;
+        }
+
         var apiUrl = $"https://motivation-quotes-api-production.up.railway.app/quotes/random?userId={chatId}";
 
         using var http = new HttpClient();
@@ -356,6 +383,11 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
 
     else if (text == "/image")
     {
+        if (IsRateLimited(imageRequests, chatId))
+        {
+            await bot.SendTextMessageAsync(chatId, "⏳ Зачекай трохи перед наступною картинкою (макс 5 кожні 40 сек).");
+            return;
+        }
         var apiUrl = "https://motivation-quotes-api-production.up.railway.app/quotes/image";
 
         using var http = new HttpClient();
@@ -369,8 +401,6 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             caption: "🖼️ Ось надихаюча цитата у вигляді зображення:"
         );
     }
-
-    
 
 }
 Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken token)
