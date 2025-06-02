@@ -11,22 +11,22 @@ using Telegram.Bot.Types.ReplyMarkups;
 using System.Net.Http.Json;
 
 Console.OutputEncoding = Encoding.UTF8;
-Env.Load();
-var token = Environment.GetEnvironmentVariable("BOT_TOKEN");
+var token = "7807766903:AAHahSiO-hJSSmz-qrtOw92bpKKPgdd3CYA"; // ⚠️ ВСТАВ СЮДИ
 
 if (string.IsNullOrEmpty(token))
 {
-    Console.WriteLine("❌ BOT_TOKEN не знайдено в .env");
+    Console.WriteLine("❌ BOT_TOKEN відсутній");
     return;
 }
 
 var botClient = new TelegramBotClient(token);
-await botClient.DeleteWebhookAsync();
+await botClient.DeleteWebhookAsync(); // прибрати вебхук, якщо був
 
-var cts = new CancellationTokenSource();
+using var cts = new CancellationTokenSource();
+
 var receiverOptions = new ReceiverOptions
 {
-    AllowedUpdates = Array.Empty<UpdateType>()
+    AllowedUpdates = Array.Empty<UpdateType>() // отримувати всі оновлення
 };
 
 Dictionary<long, string> userStates = new();
