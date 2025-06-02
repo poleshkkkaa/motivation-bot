@@ -35,7 +35,7 @@ using var cts = new CancellationTokenSource();
 
 var receiverOptions = new ReceiverOptions
 {
-    AllowedUpdates = Array.Empty<UpdateType>() // отримати всі
+    AllowedUpdates = Array.Empty<UpdateType>()
 };
 
 Dictionary<long, string> userStates = new();
