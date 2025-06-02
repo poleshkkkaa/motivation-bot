@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MotivationBot")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4ee8cebe268ea6d28b0e08d625dd239cd61251d5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a9e14bfe1ff85851c7242a04337c8be77a6f2946")]
 [assembly: System.Reflection.AssemblyProductAttribute("MotivationBot")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MotivationBot")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
