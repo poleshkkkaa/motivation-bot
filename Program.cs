@@ -10,7 +10,6 @@ using Telegram.Bot.Types.ReplyMarkups;
 using System.Net.Http.Json;
 using DotNetEnv;
 
-Console.OutputEncoding = Encoding.UTF8;
 try
 {
     Env.TraversePath().Load();
@@ -64,7 +63,6 @@ bool IsRateLimited(Dictionary<long, List<DateTime>> requestMap, long chatId)
     return false;
 }
 
-
 botClient.StartReceiving(
     HandleUpdateAsync,
     HandleErrorAsync,
@@ -72,9 +70,15 @@ botClient.StartReceiving(
     cancellationToken: cts.Token
 );
 
-botClient.StartReceiving(HandleUpdateAsync, HandleErrorAsync, receiverOptions, cancellationToken: cts.Token);
 var me = await botClient.GetMeAsync();
 Console.WriteLine($"✅ Бот {me.Username} запущено");
+
+Console.CancelKeyPress += (_, e) =>
+{
+    e.Cancel = true;
+    cts.Cancel();
+};
+
 await Task.Delay(-1, cts.Token);
 
 
