@@ -72,9 +72,11 @@ botClient.StartReceiving(
     cancellationToken: cts.Token
 );
 
+botClient.StartReceiving(HandleUpdateAsync, HandleErrorAsync, receiverOptions, cancellationToken: cts.Token);
 var me = await botClient.GetMeAsync();
 Console.WriteLine($"✅ Бот {me.Username} запущено");
-Console.ReadLine();
+await Task.Delay(-1, cts.Token);
+
 
 async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken token)
 {
