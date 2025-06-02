@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MotivationBot")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7093a0233bd5a83c13509cc881e96fd03afe6514")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a4d7c37fcafcb130d1933f7dc05c668fc2162006")]
 [assembly: System.Reflection.AssemblyProductAttribute("MotivationBot")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MotivationBot")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

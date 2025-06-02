@@ -6,27 +6,36 @@ using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.InputFiles;
-using DotNetEnv;
 using Telegram.Bot.Types.ReplyMarkups;
 using System.Net.Http.Json;
+using DotNetEnv;
 
 Console.OutputEncoding = Encoding.UTF8;
-var token = "7807766903:AAHahSiO-hJSSmz-qrtOw92bpKKPgdd3CYA"; // ⚠️ ВСТАВ СЮДИ
+try
+{
+    Env.TraversePath().Load();
+}
+catch
+{
+    Console.WriteLine("⚠️ Не вдалося знайти або завантажити .env файл.");
+}
+
+var token = Environment.GetEnvironmentVariable("BOT_TOKEN");
 
 if (string.IsNullOrEmpty(token))
 {
-    Console.WriteLine("❌ BOT_TOKEN відсутній");
+    Console.WriteLine("❌ BOT_TOKEN не знайдено у змінних середовища.");
     return;
 }
 
 var botClient = new TelegramBotClient(token);
-await botClient.DeleteWebhookAsync(); // прибрати вебхук, якщо був
+await botClient.DeleteWebhookAsync();
 
 using var cts = new CancellationTokenSource();
 
 var receiverOptions = new ReceiverOptions
 {
-    AllowedUpdates = Array.Empty<UpdateType>() // отримувати всі оновлення
+    AllowedUpdates = Array.Empty<UpdateType>() // отримати всі
 };
 
 Dictionary<long, string> userStates = new();
@@ -35,7 +44,12 @@ QuoteResponse? lastQuote = null;
 bool waitingForDeleteId = false;
 
 
-botClient.StartReceiving(HandleUpdateAsync, HandleErrorAsync,receiverOptions,cancellationToken: cts.Token);
+botClient.StartReceiving(
+    HandleUpdateAsync,
+    HandleErrorAsync,
+    receiverOptions,
+    cancellationToken: cts.Token
+);
 
 var me = await botClient.GetMeAsync();
 Console.WriteLine($"✅ Бот {me.Username} запущено");
