@@ -199,6 +199,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
         Пиши мені, коли сумно, коли радісно або просто хочеш мудре слово 🌟
         """;
         await bot.SendTextMessageAsync(chatId, welcome);
+        return;
     }
     else if (text == "/random")
     {
