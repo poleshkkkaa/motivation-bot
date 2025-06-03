@@ -206,7 +206,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
     {
         if (IsRateLimited(imageRequests, chatId)) 
         {
-            await bot.SendTextMessageAsync(chatId, "📷 Зачекай трохи перед наступною картинкою (макс 5 кожні 40 сек).");
+            await bot.SendTextMessageAsync(chatId, "📷 Зачекай трохи перед наступною цитатою (макс 5 кожні 40 сек).");
             return;
         }
 
