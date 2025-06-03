@@ -217,7 +217,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
         int retries = 0;
         bool allSeen = false;
 
-        while (retries < 20)
+        while (retries < 3)
         {
             var apiUrl = $"https://motivation-quotes-api-production.up.railway.app/quotes/random?userId={chatId}";
             var response = await http.GetAsync(apiUrl);
@@ -231,9 +231,11 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             var json = await response.Content.ReadAsStringAsync();
 
             using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("allSeen", out var allSeenProp))
+            if (doc.RootElement.TryGetProperty("allSeen", out var allSeenProp) && allSeenProp.GetBoolean())
             {
-                allSeen = allSeenProp.GetBoolean();
+                await bot.SendTextMessageAsync(chatId, "✅ Ви переглянули всі цитати. Починаємо знову!");
+                userSeenQuotes[chatId].Clear();
+                break;
             }
 
             quote = JsonSerializer.Deserialize<QuoteResponse>(json, new JsonSerializerOptions
@@ -246,6 +248,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
 
             retries++;
         }
+
 
         if (allSeen)
         {
