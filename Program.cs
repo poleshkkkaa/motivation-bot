@@ -29,7 +29,7 @@ if (string.IsNullOrEmpty(token))
 
 var botClient = new TelegramBotClient(token);
 
-await botClient.DeleteWebhookAsync(true);
+await botClient.DeleteWebhookAsync();
 
 
 using var cts = new CancellationTokenSource();
@@ -46,14 +46,13 @@ bool waitingForDeleteId = false;
 Dictionary<long, List<DateTime>> quoteRequests = new();
 Dictionary<long, List<DateTime>> imageRequests = new();
 Dictionary<long, QuoteResponse?> lastQuotes = new();
-
+Dictionary<long, HashSet<int>> userSeenQuotes = new();
 const int MAX_QUOTES_PER_USER = 50;
 
 QuoteResponse? lastQuote = null;
 
 const int REQUEST_LIMIT = 5;
 const int LIMIT_SECONDS = 40;
-Dictionary<long, HashSet<int>> userSeenQuotes = new();
 
 
 bool IsRateLimited(Dictionary<long, List<DateTime>> requestMap, long chatId)
@@ -90,7 +89,6 @@ Console.CancelKeyPress += (_, e) =>
 };
 
 await Task.Delay(-1, cts.Token);
-
 
 async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken token)
 {
