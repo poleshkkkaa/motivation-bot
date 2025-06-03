@@ -42,7 +42,8 @@ Dictionary<long, bool> waitingForTime = new();
 QuoteResponse? lastQuote = null;
 bool waitingForDeleteId = false;
 Dictionary<long, List<DateTime>> quoteRequests = new();
-Dictionary<long, List<DateTime>> imageRequests = new();
+Dictionary<long, List<DateTime>> imageRequests = new(); 
+
 const int MAX_QUOTES_PER_USER = 50;
 Dictionary<long, HashSet<int>> userSeenQuotes = new();
 
@@ -172,7 +173,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
     {
         if (IsRateLimited(quoteRequests, chatId))
         {
-            await bot.SendTextMessageAsync(chatId, "⏳ Зачекай трохи перед наступною цитатою (макс 5 кожні 40 сек).");
+            await bot.SendTextMessageAsync(chatId, "⏳ Зачекай трохи перед наступною цитатою.");
             return;
         }
 
@@ -425,6 +426,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             await bot.SendTextMessageAsync(chatId, "⏳ Зачекай трохи перед наступною картинкою (макс 5 кожні 40 сек).");
             return;
         }
+
         var apiUrl = "https://motivation-quotes-api-production.up.railway.app/quotes/image";
 
         using var http = new HttpClient();
@@ -438,6 +440,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             caption: "🖼️ Ось надихаюча цитата у вигляді зображення:"
         );
     }
+
 
 }
 Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken token)
