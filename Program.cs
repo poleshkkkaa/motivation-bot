@@ -10,10 +10,6 @@ using Telegram.Bot.Types.ReplyMarkups;
 using System.Net.Http.Json;
 using DotNetEnv;
 
-var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseUrls("http://*:8080");
-var app = builder.Build();
-app.MapGet("/", () => "Bot is running");
 
 try
 {
