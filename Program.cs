@@ -465,7 +465,11 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
 
     else if (text == "/image")
     {
-        
+        if (IsRateLimited(imageRequests, chatId))
+        {
+            await bot.SendTextMessageAsync(chatId, "📷 Зачекай трохи, багато запитів (30 сек).");
+            return;
+        }
 
         var apiUrl = "https://motivation-quotes-api-production.up.railway.app/quotes/image";
 
