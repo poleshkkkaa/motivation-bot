@@ -66,6 +66,7 @@ bool IsRateLimited(Dictionary<long, List<DateTime>> requestMap, long chatId)
     return false;
 }
 
+
 botClient.StartReceiving(
     HandleUpdateAsync,
     HandleErrorAsync,
@@ -173,7 +174,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
     {
         if (IsRateLimited(quoteRequests, chatId))
         {
-            await bot.SendTextMessageAsync(chatId, "⏳ Зачекай трохи перед наступною цитатою.");
+            await bot.SendTextMessageAsync(chatId, "⏳ Зачекай трохи перед наступною цитатою (макс 5 кожні 40 сек).");
             return;
         }
 
@@ -423,7 +424,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
     {
         if (IsRateLimited(imageRequests, chatId))
         {
-            await bot.SendTextMessageAsync(chatId, "⏳ Зачекай трохи перед наступною картинкою (макс 5 кожні 40 сек).");
+            await bot.SendTextMessageAsync(chatId, "📷 Зачекай трохи перед наступною картинкою (макс 5 кожні 40 сек).");
             return;
         }
 
@@ -440,6 +441,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             caption: "🖼️ Ось надихаюча цитата у вигляді зображення:"
         );
     }
+
 
 
 }
