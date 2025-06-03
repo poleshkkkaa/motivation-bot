@@ -46,7 +46,6 @@ bool waitingForDeleteId = false;
 Dictionary<long, List<DateTime>> quoteRequests = new();
 Dictionary<long, List<DateTime>> imageRequests = new(); 
 
-const int MAX_QUOTES_PER_USER = 50;
 Dictionary<long, HashSet<int>> userSeenQuotes = new();
 
 const int REQUEST_LIMIT = 5;
@@ -93,8 +92,6 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
 
     if (update.Type == UpdateType.CallbackQuery && update.CallbackQuery != null)
     {
-        var http = new HttpClient();
-
         var callbackData = update.CallbackQuery.Data;
         var callbackChatId = update.CallbackQuery.Message?.Chat.Id ?? 0;
         var userId = update.CallbackQuery.From.Id;
@@ -103,9 +100,13 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             (callbackData.StartsWith("like:") || callbackData.StartsWith("dislike:")))
         {
             var parts = callbackData.Split(':');
-            var reactionType = parts[0];
-            var quoteId = int.Parse(parts[1]);
+            if (parts.Length != 2 || !int.TryParse(parts[1], out int quoteId))
+            {
+                await bot.AnswerCallbackQueryAsync(update.CallbackQuery.Id, "❌ Невірний формат даних.");
+                return;
+            }
 
+            var reactionType = parts[0];
             var apiUrl = "https://motivation-quotes-api-production.up.railway.app/quotes/react";
 
             var payload = new
@@ -115,22 +116,42 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
                 ReactionType = reactionType
             };
 
-            var apiResponse = await http.PostAsJsonAsync(apiUrl, payload);
-
-            if (apiResponse.IsSuccessStatusCode)
+            try
             {
+                using var http = new HttpClient();
+                var apiResponse = await http.PostAsJsonAsync(apiUrl, payload);
+
+                if (!apiResponse.IsSuccessStatusCode)
+                {
+                    await bot.AnswerCallbackQueryAsync(update.CallbackQuery.Id, "⚠️ Помилка під час обробки реакції.");
+                    return;
+                }
+
                 var result = await apiResponse.Content.ReadFromJsonAsync<ReactionResult>();
-                var lines = update.CallbackQuery.Message?.Text?.Split('\n');
-                if (lines == null || lines.Length < 2) return;
+                var message = update.CallbackQuery.Message;
+
+                if (message?.Text == null || message.ReplyMarkup == null)
+                {
+                    await bot.AnswerCallbackQueryAsync(update.CallbackQuery.Id);
+                    return;
+                }
+
+                var lines = message.Text.Split('\n');
+                if (lines.Length < 2)
+                {
+                    await bot.AnswerCallbackQueryAsync(update.CallbackQuery.Id);
+                    return;
+                }
 
                 var updatedText = $"{lines[0]}\n{lines[1]}\n\n👍 {result?.Likes ?? 0}   👎 {result?.Dislikes ?? 0}";
+
                 try
                 {
                     await bot.EditMessageTextAsync(
                         chatId: callbackChatId,
-                        messageId: update.CallbackQuery.Message!.MessageId,
+                        messageId: message.MessageId,
                         text: updatedText,
-                        replyMarkup: update.CallbackQuery.Message.ReplyMarkup
+                        replyMarkup: message.ReplyMarkup
                     );
                 }
                 catch (Telegram.Bot.Exceptions.ApiRequestException ex) when (ex.Message.Contains("message is not modified"))
@@ -140,10 +161,16 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
 
                 await bot.AnswerCallbackQueryAsync(update.CallbackQuery.Id);
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Помилка реакції: {ex.Message}");
+                await bot.AnswerCallbackQueryAsync(update.CallbackQuery.Id, "❌ Сталася помилка.");
+            }
         }
 
         return;
     }
+
 
 
     if (update.Type != UpdateType.Message || update.Message?.Text is null)
@@ -185,20 +212,16 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
 
         var seen = userSeenQuotes[chatId];
 
-        if (seen.Count >= MAX_QUOTES_PER_USER)
-        {
-            await bot.SendTextMessageAsync(chatId, "✅ Ви переглянули всі 50 цитат. Починаємо знову!");
-            seen.Clear();
-        }
-
         using var http = new HttpClient();
         QuoteResponse? quote = null;
         int retries = 0;
+        bool allSeen = false;
 
         while (retries < 20)
         {
             var apiUrl = $"https://motivation-quotes-api-production.up.railway.app/quotes/random?userId={chatId}";
             var response = await http.GetAsync(apiUrl);
+
             if (!response.IsSuccessStatusCode)
             {
                 await bot.SendTextMessageAsync(chatId, "❌ Не вдалося отримати цитату.");
@@ -206,12 +229,28 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             }
 
             var json = await response.Content.ReadAsStringAsync();
-            quote = JsonSerializer.Deserialize<QuoteResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("allSeen", out var allSeenProp))
+            {
+                allSeen = allSeenProp.GetBoolean();
+            }
+
+            quote = JsonSerializer.Deserialize<QuoteResponse>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
 
             if (quote != null && !seen.Contains(quote.Id))
                 break;
 
             retries++;
+        }
+
+        if (allSeen)
+        {
+            await bot.SendTextMessageAsync(chatId, "✅ Ви переглянули всі цитати. Починаємо знову!");
+            seen.Clear(); 
         }
 
         if (quote == null)
@@ -236,6 +275,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
 
         await bot.SendTextMessageAsync(chatId, message, replyMarkup: inlineKeyboard);
     }
+
 
     else if (text == "/save")
     {
@@ -432,17 +472,32 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
 
         var apiUrl = "https://motivation-quotes-api-production.up.railway.app/quotes/image";
 
-        using var http = new HttpClient();
-        var imageBytes = await http.GetByteArrayAsync(apiUrl);
-        using var stream = new MemoryStream(imageBytes);
-        InputOnlineFile input = new InputOnlineFile(stream, "quote.jpg");
+        try
+        {
+            using var http = new HttpClient();
+            var imageBytes = await http.GetByteArrayAsync(apiUrl);
 
-        await bot.SendPhotoAsync(
-            chatId: chatId,
-            photo: input,
-            caption: "🖼️ Ось надихаюча цитата у вигляді зображення:"
-        );
+            if (imageBytes == null || imageBytes.Length == 0)
+            {
+                await bot.SendTextMessageAsync(chatId, "❌ Не вдалося отримати зображення.");
+                return;
+            }
+
+            using var stream = new MemoryStream(imageBytes);
+            var input = new InputOnlineFile(stream, "quote.jpg");
+
+            await bot.SendPhotoAsync(
+                chatId: chatId,
+                photo: input,
+                caption: "🖼️ Ось надихаюча цитата у вигляді зображення:"
+            );
+        }
+        catch (Exception ex)
+        {
+            await bot.SendTextMessageAsync(chatId, $"⚠️ Помилка при отриманні зображення: {ex.Message}");
+        }
     }
+
 
 
 
