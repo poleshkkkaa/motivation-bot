@@ -28,7 +28,9 @@ if (string.IsNullOrEmpty(token))
 }
 
 var botClient = new TelegramBotClient(token);
-await botClient.DeleteWebhookAsync();
+
+await botClient.DeleteWebhookAsync(true);
+
 
 using var cts = new CancellationTokenSource();
 
