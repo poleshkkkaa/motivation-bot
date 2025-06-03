@@ -43,6 +43,8 @@ QuoteResponse? lastQuote = null;
 bool waitingForDeleteId = false;
 Dictionary<long, List<DateTime>> quoteRequests = new();
 Dictionary<long, List<DateTime>> imageRequests = new();
+const int MAX_QUOTES_PER_USER = 50;
+Dictionary<long, HashSet<int>> userSeenQuotes = new();
 
 const int REQUEST_LIMIT = 5;
 const int LIMIT_SECONDS = 40;
@@ -84,7 +86,7 @@ await Task.Delay(-1, cts.Token);
 
 async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken token)
 {
-   
+
     if (update.Type == UpdateType.CallbackQuery && update.CallbackQuery != null)
     {
         var http = new HttpClient();
@@ -118,13 +120,19 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
                 if (lines == null || lines.Length < 2) return;
 
                 var updatedText = $"{lines[0]}\n{lines[1]}\n\n👍 {result?.Likes ?? 0}   👎 {result?.Dislikes ?? 0}";
-
-                await bot.EditMessageTextAsync(
-                    chatId: callbackChatId,
-                    messageId: update.CallbackQuery.Message!.MessageId,
-                    text: updatedText,
-                    replyMarkup: update.CallbackQuery.Message.ReplyMarkup
-                );
+                try
+                {
+                    await bot.EditMessageTextAsync(
+                        chatId: callbackChatId,
+                        messageId: update.CallbackQuery.Message!.MessageId,
+                        text: updatedText,
+                        replyMarkup: update.CallbackQuery.Message.ReplyMarkup
+                    );
+                }
+                catch (Telegram.Bot.Exceptions.ApiRequestException ex) when (ex.Message.Contains("message is not modified"))
+                {
+                    Console.WriteLine("⚠️ Повідомлення вже актуальне, редагування не потрібне.");
+                }
 
                 await bot.AnswerCallbackQueryAsync(update.CallbackQuery.Id);
             }
@@ -132,6 +140,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
 
         return;
     }
+
 
     if (update.Type != UpdateType.Message || update.Message?.Text is null)
         return;
@@ -167,25 +176,47 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             return;
         }
 
-        var apiUrl = $"https://motivation-quotes-api-production.up.railway.app/quotes/random?userId={chatId}";
+        if (!userSeenQuotes.ContainsKey(chatId))
+            userSeenQuotes[chatId] = new HashSet<int>();
+
+        var seen = userSeenQuotes[chatId];
+
+        if (seen.Count >= MAX_QUOTES_PER_USER)
+        {
+            await bot.SendTextMessageAsync(chatId, "✅ Ви переглянули всі 50 цитат. Починаємо знову!");
+            seen.Clear();
+        }
 
         using var http = new HttpClient();
-        var response = await http.GetAsync(apiUrl);
-        var json = await response.Content.ReadAsStringAsync();
+        QuoteResponse? quote = null;
+        int retries = 0;
 
-        if (!response.IsSuccessStatusCode)
+        while (retries < 20)
         {
-            await bot.SendTextMessageAsync(chatId, "❌ Не вдалося отримати цитату.");
-            return;
+            var apiUrl = $"https://motivation-quotes-api-production.up.railway.app/quotes/random?userId={chatId}";
+            var response = await http.GetAsync(apiUrl);
+            if (!response.IsSuccessStatusCode)
+            {
+                await bot.SendTextMessageAsync(chatId, "❌ Не вдалося отримати цитату.");
+                return;
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            quote = JsonSerializer.Deserialize<QuoteResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (quote != null && !seen.Contains(quote.Id))
+                break;
+
+            retries++;
         }
 
-        var quote = JsonSerializer.Deserialize<QuoteResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         if (quote == null)
         {
-            await bot.SendTextMessageAsync(chatId, "⚠️ Помилка обробки цитати.");
+            await bot.SendTextMessageAsync(chatId, "⚠️ Не вдалося знайти нову цитату.");
             return;
         }
 
+        seen.Add(quote.Id);
         lastQuote = quote;
 
         string message = $"💬 \"{quote.Text}\"\n— {quote.Author}\n\n👍 {quote.Likes}   👎 {quote.Dislikes}";
