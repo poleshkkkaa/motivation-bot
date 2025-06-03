@@ -48,6 +48,7 @@ Dictionary<long, List<DateTime>> imageRequests = new();
 Dictionary<long, QuoteResponse?> lastQuotes = new();
 
 Dictionary<long, HashSet<int>> userSeenQuotes = new();
+QuoteResponse? lastQuote = null;
 
 const int REQUEST_LIMIT = 5;
 const int LIMIT_SECONDS = 40;
@@ -208,51 +209,32 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             return;
         }
 
-        if (!userSeenQuotes.ContainsKey(chatId))
-            userSeenQuotes[chatId] = new HashSet<int>();
-
-        var seen = userSeenQuotes[chatId];
-
         using var http = new HttpClient();
-        QuoteResponse? quote = null;
-        int retries = 0;
-        bool allSeen = false;
 
-        while (retries < 3)
+        var apiUrl = $"https://motivation-quotes-api-production.up.railway.app/quotes/random?userId={chatId}";
+        var response = await http.GetAsync(apiUrl);
+
+        if (!response.IsSuccessStatusCode)
         {
-            var apiUrl = $"https://motivation-quotes-api-production.up.railway.app/quotes/random?userId={chatId}";
-            var response = await http.GetAsync(apiUrl);
+            await bot.SendTextMessageAsync(chatId, "❌ Не вдалося отримати цитату.");
+            return;
+        }
 
-            if (!response.IsSuccessStatusCode)
-            {
-                await bot.SendTextMessageAsync(chatId, "❌ Не вдалося отримати цитату.");
-                return;
-            }
+        var json = await response.Content.ReadAsStringAsync();
 
-            var json = await response.Content.ReadAsStringAsync();
+        QuoteResponse? quote = null;
 
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("allSeen", out var allSeenProp) && allSeenProp.GetBoolean())
-            {
-                allSeen = true;
-                seen.Clear(); // очищаємо історію для поточного користувача
-                break;
-            }
-
+        try
+        {
             quote = JsonSerializer.Deserialize<QuoteResponse>(json, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
             });
-
-            if (quote != null && !seen.Contains(quote.Id))
-                break;
-
-            retries++;
         }
-
-        if (allSeen)
+        catch
         {
-            await bot.SendTextMessageAsync(chatId, "✅ Ви переглянули всі цитати. Починаємо знову!");
+            await bot.SendTextMessageAsync(chatId, "⚠️ Помилка при обробці відповіді сервера.");
+            return;
         }
 
         if (quote == null)
@@ -261,8 +243,13 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             return;
         }
 
-        seen.Add(quote.Id);
-        lastQuotes[chatId] = quote;
+        // якщо всі переглянуті
+        if (quote.AllSeen)
+        {
+            await bot.SendTextMessageAsync(chatId, "✅ Ви переглянули всі цитати. Починаємо знову!");
+        }
+
+        lastQuote = quote;
 
         string message = $"💬 \"{quote.Text}\"\n— {quote.Author}\n\n👍 {quote.Likes}   👎 {quote.Dislikes}";
 
@@ -277,7 +264,6 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
 
         await bot.SendTextMessageAsync(chatId, message, replyMarkup: inlineKeyboard);
     }
-
 
 
     else if (text == "/save")
@@ -549,5 +535,6 @@ public class QuoteResponse
     public long UserId { get; set; }
     public int Likes { get; set; }
     public int Dislikes { get; set; }
+    public bool AllSeen { get; set; }
 }
 
