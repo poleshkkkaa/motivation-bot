@@ -12,15 +12,12 @@ using DotNetEnv;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 🔧 Для Railway — запускає сервер на порту 8080
 builder.WebHost.UseUrls("http://*:8080");
 
 var app = builder.Build();
 
-// 🌐 Кореневий маршрут
 app.MapGet("/", () => "Bot is running");
 
-// 🔄 Запускаємо HTTP-сервер (не блокує бота)
 app.RunAsync();
 
 try
