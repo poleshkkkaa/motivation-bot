@@ -51,6 +51,7 @@ const int MAX_QUOTES_PER_USER = 50;
 Dictionary<long, QuoteResponse> userLastQuotes = new();
 const int REQUEST_LIMIT = 5;
 const int LIMIT_SECONDS = 40;
+Dictionary<long, List<DateTime>> saveRequests = new(); 
 
 
 bool IsRateLimited(Dictionary<long, List<DateTime>> requestMap, long chatId)
@@ -203,9 +204,9 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
     }
     else if (text == "/random")
     {
-        if (IsRateLimited(quoteRequests, chatId))
+        if (IsRateLimited(imageRequests, chatId)) 
         {
-            await bot.SendTextMessageAsync(chatId, "⏳ Зачекай трохи перед наступною цитатою (макс 5 кожні 40 сек).");
+            await bot.SendTextMessageAsync(chatId, "📷 Зачекай трохи перед наступною картинкою (макс 5 кожні 40 сек).");
             return;
         }
 
@@ -256,12 +257,12 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
 
         var inlineKeyboard = new InlineKeyboardMarkup(new[]
         {
-    new[]
-    {
-        InlineKeyboardButton.WithCallbackData("👍", $"like:{quote.Id}"),
-        InlineKeyboardButton.WithCallbackData("👎", $"dislike:{quote.Id}")
-    }
-      });
+           new[]
+           {
+              InlineKeyboardButton.WithCallbackData("👍", $"like:{quote.Id}"),
+              InlineKeyboardButton.WithCallbackData("👎", $"dislike:{quote.Id}")
+           }
+           });
 
         await bot.SendTextMessageAsync(chatId, message, replyMarkup: inlineKeyboard);
     }
@@ -322,6 +323,11 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
 
     else if (text == "/save")
     {
+        if (IsRateLimited(saveRequests, chatId))  
+        {
+            await bot.SendTextMessageAsync(chatId, "💾 Зачекай трохи перед збереженням ще однієї цитати.");
+            return;
+        }
         if (!userLastQuotes.ContainsKey(chatId))
         {
             await bot.SendTextMessageAsync(chatId, "❗ Спочатку отримай цитату через /random.");
