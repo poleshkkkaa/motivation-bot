@@ -48,9 +48,7 @@ Dictionary<long, List<DateTime>> imageRequests = new();
 Dictionary<long, QuoteResponse?> lastQuotes = new();
 Dictionary<long, HashSet<int>> userSeenQuotes = new();
 const int MAX_QUOTES_PER_USER = 50;
-
-QuoteResponse? lastQuote = null;
-
+Dictionary<long, QuoteResponse> userLastQuotes = new();
 const int REQUEST_LIMIT = 5;
 const int LIMIT_SECONDS = 40;
 
@@ -252,7 +250,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
         }
 
         seen.Add(quote.Id);
-        lastQuote = quote;
+        userLastQuotes[chatId] = quote;
 
         string message = $"💬 \"{quote.Text}\"\n— {quote.Author}\n\n👍 {quote.Likes}   👎 {quote.Dislikes}";
 
@@ -324,18 +322,19 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
 
     else if (text == "/save")
     {
-        if (!lastQuotes.TryGetValue(chatId, out var lastQuote) || lastQuote == null)
+        if (!userLastQuotes.ContainsKey(chatId))
         {
             await bot.SendTextMessageAsync(chatId, "❗ Спочатку отримай цитату через /random.");
             return;
         }
 
+        var quote = userLastQuotes[chatId];
+        quote.UserId = chatId;
+
         using var http = new HttpClient();
         var apiUrl = "https://motivation-quotes-api-production.up.railway.app/quotes/favorites/add";
 
-        lastQuote.UserId = chatId;
-
-        var quoteJson = JsonSerializer.Serialize(lastQuote);
+        var quoteJson = JsonSerializer.Serialize(quote);
         var content = new StringContent(quoteJson, Encoding.UTF8, "application/json");
 
         try
@@ -359,7 +358,6 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             await bot.SendTextMessageAsync(chatId, $"⚠️ Помилка: {ex.Message}");
         }
     }
-
 
     else if (text == "/favorites")
     {
