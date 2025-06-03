@@ -267,59 +267,6 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
         await bot.SendTextMessageAsync(chatId, message, replyMarkup: inlineKeyboard);
     }
 
-    if (update.Type == UpdateType.CallbackQuery && update.CallbackQuery != null)
-    {
-        var http = new HttpClient();
-
-        var callbackData = update.CallbackQuery.Data;
-        var callbackChatId = update.CallbackQuery.Message?.Chat.Id ?? 0;
-        var userId = update.CallbackQuery.From.Id;
-
-        if (!string.IsNullOrEmpty(callbackData) &&
-            (callbackData.StartsWith("like:") || callbackData.StartsWith("dislike:")))
-        {
-            var parts = callbackData.Split(':');
-            var reactionType = parts[0];
-            var quoteId = int.Parse(parts[1]);
-
-            var apiUrl = "https://motivation-quotes-api-production.up.railway.app/quotes/react";
-
-            var payload = new
-            {
-                QuoteId = quoteId,
-                UserId = userId,
-                ReactionType = reactionType
-            };
-
-            var apiResponse = await http.PostAsJsonAsync(apiUrl, payload);
-
-            if (apiResponse.IsSuccessStatusCode)
-            {
-                var result = await apiResponse.Content.ReadFromJsonAsync<ReactionResult>();
-                var lines = update.CallbackQuery.Message?.Text?.Split('\n');
-                if (lines == null || lines.Length < 2) return;
-
-                var updatedText = $"{lines[0]}\n{lines[1]}\n\n👍 {result?.Likes ?? 0}   👎 {result?.Dislikes ?? 0}";
-                try
-                {
-                    await bot.EditMessageTextAsync(
-                        chatId: callbackChatId,
-                        messageId: update.CallbackQuery.Message!.MessageId,
-                        text: updatedText,
-                        replyMarkup: update.CallbackQuery.Message.ReplyMarkup
-                    );
-                }
-                catch (Telegram.Bot.Exceptions.ApiRequestException ex) when (ex.Message.Contains("message is not modified"))
-                {
-                    Console.WriteLine("⚠️ Повідомлення вже актуальне, редагування не потрібне.");
-                }
-
-                await bot.AnswerCallbackQueryAsync(update.CallbackQuery.Id);
-            }
-        }
-
-        return;
-    }
 
     else if (text == "/save")
     {
