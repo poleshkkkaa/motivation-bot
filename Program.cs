@@ -270,11 +270,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
 
     else if (text == "/save")
     {
-        if (IsRateLimited(saveRequests, chatId))  
-        {
-            await bot.SendTextMessageAsync(chatId, "💾 Зачекай трохи перед збереженням ще однієї цитати.");
-            return;
-        }
+        
         if (!userLastQuotes.ContainsKey(chatId))
         {
             await bot.SendTextMessageAsync(chatId, "❗ Спочатку отримай цитату через /random.");
