@@ -41,10 +41,11 @@ var receiverOptions = new ReceiverOptions
 
 Dictionary<long, string> userStates = new();
 Dictionary<long, bool> waitingForTime = new();
-QuoteResponse? lastQuote = null;
+
 bool waitingForDeleteId = false;
 Dictionary<long, List<DateTime>> quoteRequests = new();
-Dictionary<long, List<DateTime>> imageRequests = new(); 
+Dictionary<long, List<DateTime>> imageRequests = new();
+Dictionary<long, QuoteResponse?> lastQuotes = new();
 
 Dictionary<long, HashSet<int>> userSeenQuotes = new();
 
@@ -233,8 +234,8 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             using var doc = JsonDocument.Parse(json);
             if (doc.RootElement.TryGetProperty("allSeen", out var allSeenProp) && allSeenProp.GetBoolean())
             {
-                await bot.SendTextMessageAsync(chatId, "✅ Ви переглянули всі цитати. Починаємо знову!");
-                userSeenQuotes[chatId].Clear();
+                allSeen = true;
+                seen.Clear(); // очищаємо історію для поточного користувача
                 break;
             }
 
@@ -249,11 +250,9 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             retries++;
         }
 
-
         if (allSeen)
         {
             await bot.SendTextMessageAsync(chatId, "✅ Ви переглянули всі цитати. Починаємо знову!");
-            seen.Clear(); 
         }
 
         if (quote == null)
@@ -263,7 +262,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
         }
 
         seen.Add(quote.Id);
-        lastQuote = quote;
+        lastQuotes[chatId] = quote;
 
         string message = $"💬 \"{quote.Text}\"\n— {quote.Author}\n\n👍 {quote.Likes}   👎 {quote.Dislikes}";
 
@@ -280,9 +279,10 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
     }
 
 
+
     else if (text == "/save")
     {
-        if (lastQuote == null)
+        if (!lastQuotes.TryGetValue(chatId, out var lastQuote) || lastQuote == null)
         {
             await bot.SendTextMessageAsync(chatId, "❗ Спочатку отримай цитату через /random.");
             return;
@@ -318,6 +318,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
         }
     }
 
+
     else if (text == "/favorites")
     {
         using var http = new HttpClient();
@@ -351,14 +352,12 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
         }
     }
 
-    if (text == "/delete")
+    else if (text == "/delete")
     {
         waitingForDeleteId = true;
         await bot.SendTextMessageAsync(chatId, "✏️ Введи ID цитати, яку хочеш видалити:");
-        return;
     }
-
-    if (waitingForDeleteId)
+    else if (waitingForDeleteId)
     {
         if (int.TryParse(text, out int id))
         {
@@ -384,8 +383,8 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
                 await bot.SendTextMessageAsync(chatId, $"⚠️ Помилка: {ex.Message}");
             }
         }
-        return;
     }
+
 
     else if (text == "/history")
     {
@@ -500,8 +499,6 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             await bot.SendTextMessageAsync(chatId, $"⚠️ Помилка при отриманні зображення: {ex.Message}");
         }
     }
-
-
 
 
 }
